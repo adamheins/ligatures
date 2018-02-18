@@ -1,4 +1,5 @@
 import re
+import itertools
 
 
 # NOTE: we want longer ligatures first
@@ -27,23 +28,35 @@ def remove_ligs(parts):
 def query(ss2lig, lig2ss, parts):
     parts = remove_ligs(parts)
 
+    candidates = []
     for curr_part, next_part in zip(parts[:-1], parts[1:]):
         ligs = ss2lig[curr_part]
-        candidates = []
+        candidates.append([])
         for lig in ligs:
             if next_part in lig2ss[lig]:
-                candidates.append(lig)
-        print(candidates)
+                candidates[-1].append(lig)
+
+    lig_combos = itertools.product(*candidates)
+    candidate_words = []
+    for lig_combo in lig_combos:
+        word = [parts[0]]
+        for lig, part in zip(lig_combo, parts[1:]):
+            word.append(lig)
+            word.append(part)
+        candidate_words.append(''.join(word))
+
+    return candidate_words
 
 
 def main():
-    substring_to_lig_map = {}
-    lig_to_substring_map = {}
+    ss2lig = {}
+    lig2ss = {}
 
     with open('words.txt') as f:
         words = set(f.read().splitlines())
 
     words_with_ligatures = []
+    num_lig_hist = {}
 
     # Find all words containing ligatures.
     for word in words:
@@ -54,24 +67,44 @@ def main():
         substrs = COMMON_LIGATURE_REGEX.split(word)
         ligs = COMMON_LIGATURE_REGEX.findall(word)
 
+        # Construct a histogram of number of ligatures in each word with at
+        # least one.
+        if len(ligs) in num_lig_hist:
+            num_lig_hist[len(ligs)].append(word)
+        else:
+            num_lig_hist[len(ligs)] = [word]
+
         for ss, lig in zip(substrs, ligs):
-            if ss in substring_to_lig_map:
-                substring_to_lig_map[ss].add(lig)
+            if ss in ss2lig:
+                ss2lig[ss].add(lig)
             else:
-                substring_to_lig_map[ss] = set([lig])
+                ss2lig[ss] = set([lig])
 
         for lig, ss in zip(ligs, substrs[1:]):
-            if lig in lig_to_substring_map:
-                lig_to_substring_map[lig].add(ss)
+            if lig in lig2ss:
+                lig2ss[lig].add(ss)
             else:
-                lig_to_substring_map[lig] = set([ss])
+                lig2ss[lig] = set([ss])
 
-    save_map(substring_to_lig_map, 'ss2lig.txt')
-    save_map(lig_to_substring_map, 'lig2ss.txt')
+    save_map(ss2lig, 'ss2lig.txt')
+    save_map(lig2ss, 'lig2ss.txt')
 
-    query(substring_to_lig_map, lig_to_substring_map, ['di', 'cult'])
+    num_ambiguous = 0
+    for word in words_with_ligatures:
+        substrs = COMMON_LIGATURE_REGEX.split(word)
+        candidates = query(ss2lig, lig2ss, substrs)
+        candidates = [c for c in candidates if c in words]
+        if len(candidates) > 1:
+            num_ambiguous += 1
 
-    print(len(words_with_ligatures) / len(words) * 100)
+    num_words = len(words)
+    num_lig_words = len(words_with_ligatures)
+    lig_percent = num_lig_words / num_words * 100
+    ambiguous_percent = num_ambiguous / num_lig_words * 100
+    total_ambiguous_percent = num_ambiguous / num_words
+
+    print('{} of {} words contain ligatures ({:.2f}%).'.format(num_lig_words, num_words, lig_percent))
+    print('{} of {} words with ligatures are ambiguous ({:.2f}%; {:.4f}% of all words).'.format(num_ambiguous, num_lig_words, ambiguous_percent, total_ambiguous_percent))
 
 
 if __name__ == '__main__':
