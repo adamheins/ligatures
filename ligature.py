@@ -12,10 +12,12 @@ OTHER_LIGATURE_BASES = ['a', 'e', 'o', 'r', 's', 't', 'b', 'h', 'u', 'y', '.',
 OTHER_LIGATURES = [f + s for f in ['f', 'ff', 'fft'] for s in OTHER_LIGATURE_BASES]
 
 
-def save_map(m, fname):
+def save_ss2lig_map(ss2lig, fname):
     with open(fname, 'w') as f:
-        for k, v in m.items():
-            f.write('{}:{}\n'.format(k, ','.join(v)))
+        for k, v in ss2lig.items():
+            before = ','.join(v['before'])
+            after = ','.join(v['after'])
+            f.write('{}:{};{}\n'.format(k, before, after))
 
 
 def remove_ligs(parts):
@@ -25,16 +27,15 @@ def remove_ligs(parts):
     return parts_no_ligs
 
 
-def query(ss2lig, lig2ss, parts):
+def query(ss2lig, parts):
     parts = remove_ligs(parts)
 
     candidates = []
     for curr_part, next_part in zip(parts[:-1], parts[1:]):
-        ligs = ss2lig[curr_part]
-        candidates.append([])
-        for lig in ligs:
-            if next_part in lig2ss[lig]:
-                candidates[-1].append(lig)
+        next_ligs = ss2lig[curr_part]['after']
+        prev_ligs = ss2lig[next_part]['before']
+        ligs = next_ligs.intersection(prev_ligs)
+        candidates.append(ligs)
 
     lig_combos = itertools.product(*candidates)
     candidate_words = []
@@ -48,20 +49,17 @@ def query(ss2lig, lig2ss, parts):
     return candidate_words
 
 
-def main():
-    ss2lig = {}
-    lig2ss = {}
-
-    with open('words.txt') as f:
-        words = set(f.read().splitlines())
-
-    words_with_ligatures = []
-    num_lig_hist = {}
-
-    # Find all words containing ligatures.
+def find_words_with_ligatures(words):
+    words_with_ligatures = set()
     for word in words:
         if COMMON_LIGATURE_REGEX.search(word):
-            words_with_ligatures.append(word)
+            words_with_ligatures.add(word)
+    return words_with_ligatures
+
+
+def build_ss2lig_map(words_with_ligatures):
+    ss2lig = {}
+    num_lig_hist = {}
 
     for word in words_with_ligatures:
         substrs = COMMON_LIGATURE_REGEX.split(word)
@@ -74,29 +72,69 @@ def main():
         else:
             num_lig_hist[len(ligs)] = [word]
 
+        # Initialize substring mapping.
+        for ss in substrs:
+            if ss not in ss2lig:
+                ss2lig[ss] = { 'before': set(), 'after': set() }
+
         for ss, lig in zip(substrs, ligs):
-            if ss in ss2lig:
-                ss2lig[ss].add(lig)
-            else:
-                ss2lig[ss] = set([lig])
+            ss2lig[ss]['after'].add(lig)
 
         for lig, ss in zip(ligs, substrs[1:]):
-            if lig in lig2ss:
-                lig2ss[lig].add(ss)
-            else:
-                lig2ss[lig] = set([ss])
+            ss2lig[ss]['before'].add(lig)
 
-    save_map(ss2lig, 'ss2lig.txt')
-    save_map(lig2ss, 'lig2ss.txt')
+    return ss2lig, num_lig_hist
 
+
+def build():
+    ''' Build ligature database. '''
+    with open('words.txt') as f:
+        words = set(f.read().splitlines())
+
+    words_with_ligatures = find_words_with_ligatures(words)
+    with open('words_with_ligatures.txt', 'w') as f:
+        f.write('\n'.join(words_with_ligatures))
+
+    ss2lig, _ = build_ss2lig_map(words_with_ligatures)
+    save_ss2lig_map(ss2lig, 'ss2lig.txt')
+
+    return words, words_with_ligatures, ss2lig
+
+
+def load():
+    ''' Load ligature data. '''
+    with open('words_with_ligatures.txt') as f:
+        words_with_ligatures = set(f.read().splitlines())
+
+    with open('ss2lig.txt') as f:
+        lines = f.readlines()
+
+    ss2lig = {}
+    for line in lines:
+        k, v = tuple(line.strip().split(':'))
+        before, after = tuple(v.split(';'))
+        before = set(before.split(','))
+        after = set(after.split(','))
+        ss2lig[k] = { 'before': before, 'after': after }
+
+    return words_with_ligatures, ss2lig
+
+
+def main():
+    words, _, _ = build()
+    words_with_ligatures, ss2lig = load()
+
+    # Determine how many words with ligatures removed become ambiguous when we
+    # try to add the ligatures back.
     num_ambiguous = 0
     for word in words_with_ligatures:
         substrs = COMMON_LIGATURE_REGEX.split(word)
-        candidates = query(ss2lig, lig2ss, substrs)
-        candidates = [c for c in candidates if c in words]
+        candidates = query(ss2lig, substrs)
+        candidates = [c for c in candidates if c in words_with_ligatures]
         if len(candidates) > 1:
             num_ambiguous += 1
 
+    # Statistics.
     num_words = len(words)
     num_lig_words = len(words_with_ligatures)
     lig_percent = num_lig_words / num_words * 100
