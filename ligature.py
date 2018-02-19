@@ -1,6 +1,8 @@
 import re
 import itertools
 
+import textract
+
 
 # NOTE: we want longer ligatures first
 COMMON_LIGATURE_BASES = ['fi', 'fl', 'i', 'j', 'l', 'f']
@@ -32,8 +34,11 @@ def query(ss2lig, parts):
 
     candidates = []
     for curr_part, next_part in zip(parts[:-1], parts[1:]):
-        next_ligs = ss2lig[curr_part]['after']
-        prev_ligs = ss2lig[next_part]['before']
+        try:
+            next_ligs = ss2lig[curr_part]['after']
+            prev_ligs = ss2lig[next_part]['before']
+        except KeyError:
+            return None
         ligs = next_ligs.intersection(prev_ligs)
         candidates.append(ligs)
 
@@ -145,5 +150,22 @@ def main():
     print('{} of {} words with ligatures are ambiguous ({:.2f}%; {:.4f}% of all words).'.format(num_ambiguous, num_lig_words, ambiguous_percent, total_ambiguous_percent))
 
 
+def test():
+    text = textract.process('curses.pdf').decode('utf-8')
+    unknown = u'\ufffd'
+    regex = u'\W(([a-zA-Z]*\ufffd)+[a-zA-Z]*)\W'
+
+    words_with_ligatures, ss2lig = load()
+
+    for match, _ in re.findall(regex, text):
+        parts = match.split(unknown)
+        candidates = query(ss2lig, parts)
+        if candidates is None:
+            print('Could not find a match for {}.'.format(match))
+            continue
+        candidates = [c for c in candidates if c in words_with_ligatures]
+        print(candidates)
+
+
 if __name__ == '__main__':
-    main()
+    test()
