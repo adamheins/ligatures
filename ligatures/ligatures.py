@@ -6,7 +6,6 @@ import re
 # NOTE: we want longer ligatures first
 COMMON_LIGATURE_BASES = sorted(['fi', 'fl', 'i', 'j', 'l', 'f'], key=len, reverse=True)
 COMMON_LIGATURES = ['f' + s for s in COMMON_LIGATURE_BASES]
-COMMON_LIGATURE_REGEX = re.compile('|'.join(COMMON_LIGATURES))
 
 OTHER_LIGATURE_BASES = ['a', 'e', 'o', 'r', 's', 't', 'b', 'h', 'u', 'y', '.',
                         ',', '-']

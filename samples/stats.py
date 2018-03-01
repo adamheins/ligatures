@@ -42,13 +42,5 @@ def main():
     stats(words, lig_map)
 
 
-def test():
-    text = textract.process('curses.pdf').decode('utf-8')
-    unknown = u'\ufffd'
-
-    lig_map = ligatures.load('data')
-    _, new_text = lig_map.query_text(text, unknown, verbose=True)
-
-
 if __name__ == '__main__':
-    test()
+    main()
