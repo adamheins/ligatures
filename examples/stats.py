@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import os
-
 import ligatures
 
 
@@ -30,7 +29,7 @@ def stats(words, lig_map):
 
 
 def main():
-    with open('../words.txt') as f:
+    with open('words.txt') as f:
         words = set(f.read().splitlines())
 
     # Build the ligature map if it doesn't already exist.
