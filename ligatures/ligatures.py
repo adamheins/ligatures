@@ -1,6 +1,6 @@
 import itertools
 import os
-import re
+import regex as re
 
 
 # NOTE: we want longer ligatures first
@@ -188,7 +188,7 @@ class LigatureMap(object):
     def query_text(self, text, lig_identifier, verbose=False):
         # Regex to find words that contain one or more occurences of the given
         # ligature identifier.
-        lig_word_regex = u'\W(([a-zA-Z]*' + lig_identifier + ')+[a-zA-Z]*)\W'
+        lig_word_regex = u'\s(([a-zA-Z]*' + lig_identifier + ')+[a-zA-Z]*)\s'
 
         num_failed = 0
         num_ambiguous = 0
@@ -197,7 +197,7 @@ class LigatureMap(object):
         matches = []
 
         # Find all words with ligatures.
-        for match in re.finditer(lig_word_regex, text):
+        for match in re.finditer(lig_word_regex, text, overlapped=True):
             word = match.group(1)
 
             parts = word.split(lig_identifier)

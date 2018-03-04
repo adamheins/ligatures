@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-
-import textract
+import os
 
 import ligatures
 
@@ -31,12 +30,14 @@ def stats(words, lig_map):
 
 
 def main():
-    with open('words.txt') as f:
+    with open('../words.txt') as f:
         words = set(f.read().splitlines())
 
-    # Test out build/save/load
-    lig_map = ligatures.build(words)
-    lig_map.save('data')
+    # Build the ligature map if it doesn't already exist.
+    if not os.path.isdir('data'):
+        lig_map = ligatures.build(words)
+        lig_map.save('data')
+
     lig_map = ligatures.load('data')
 
     stats(words, lig_map)
