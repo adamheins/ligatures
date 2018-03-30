@@ -10,7 +10,7 @@ def read(fname):
 
 setup(
     name='ligatures',
-    version='0.0.1',
+    version='1.0.0',
     author='Adam Heins',
     author_email='mail@adamheins.com',
     description='Ligature manipulation and inference.',
